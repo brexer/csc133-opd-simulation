@@ -43,7 +43,7 @@ class ClinicModel(mesa.Model):
         if roll < 0.15:
             priority = "Urgent"
         elif roll < 0.40:
-            priority = "Elderly/PWD/Pregnant"
+            priority = "Vulnerable"
         else:
             priority = "Regular"
             

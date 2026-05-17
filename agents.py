@@ -6,7 +6,7 @@ class PatientAgent(mesa.Agent):
     def __init__(self, unique_id, model, priority_level, spawn_time):
         super().__init__(unique_id, model)
         
-        # evaluate agent: "Urgent", "Elderly/PWD/Pregnant", or "Regular"
+        # evaluate agent: "Urgent", "Elderly/PWD/Pregnant (Vulnerable)", or "Regular"
         self.priority_level = priority_level
         self.spawn_time = spawn_time          # the exact minute they arrived
         
