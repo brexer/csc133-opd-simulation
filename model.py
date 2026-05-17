@@ -7,10 +7,6 @@ class ClinicModel(mesa.Model):
     
     def __init__(self):
         super().__init__()
-        
-        # 1 tick = 1 minute in real time.
-        self.schedule = mesa.time.BaseScheduler(self)
-        self.current_id = 0
                 
         self.datacollector = mesa.DataCollector(
             agent_reporters={
@@ -31,13 +27,11 @@ class ClinicModel(mesa.Model):
         if random.random() < 0.20:
             self.spawn_patient()
             
-        self.schedule.step()
+        self.agents.shuffle_do("step")
         self.datacollector.collect(self)
 
     def spawn_patient(self):
         """Generates a new patient with a mathematically weighted priority tag."""
-        self.current_id += 1
-        
         # Monte Carlo Attribute Assignment 15% for Urgent, 25% for Elderly/PWD/Pregnant, 60% for the rest.
         roll = random.random()
         if roll < 0.15:
@@ -47,5 +41,4 @@ class ClinicModel(mesa.Model):
         else:
             priority = "Regular"
             
-        new_patient = PatientAgent(self.current_id, self, priority, self.schedule.time)
-        self.schedule.add(new_patient)
+        PatientAgent(self, priority, self.steps)

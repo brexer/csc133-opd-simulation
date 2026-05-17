@@ -3,8 +3,8 @@ import mesa
 class PatientAgent(mesa.Agent):
     """An autonomous agent representing a patient in the OPD pipeline."""
     
-    def __init__(self, unique_id, model, priority_level, spawn_time):
-        super().__init__(unique_id, model)
+    def __init__(self, model, priority_level, spawn_time):
+        super().__init__(model)
         
         # evaluate agent: "Urgent", "Elderly/PWD/Pregnant (Vulnerable)", or "Regular"
         self.priority_level = priority_level
