@@ -28,8 +28,8 @@ class ClinicModel(mesa.Model):
         Advances the simulation by exactly one minute.
         This function is called over and over in a loop until the hospital closes.
         """
-        # There is a 80% chance every tick that a patient comes in
-        if random.random() < 0.80:
+        # There is a 20% chance every tick that a patient comes in
+        if random.random() < 0.20:
             self.spawn_patient()
             
         self.agents.shuffle_do("step")

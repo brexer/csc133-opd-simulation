@@ -31,11 +31,13 @@ class PatientAgent(mesa.Agent):
         If agent is stuck waiting, their wait timer is incremented.
         """
         if self.is_waiting:
-            if self.current_location == "Entrance":
+            if self.current_location == "Registration":
                 self.wait_time_registration += 1
-            elif self.current_location == "Registration":
-                self.wait_time_triage += 1
+                
             elif self.current_location == "Triage":
+                self.wait_time_triage += 1
+                
+            elif self.current_location == "Consultation":
                 self.wait_time_consultation += 1
                 
     def get_total_wait_time(self):

@@ -35,4 +35,4 @@ def run_monte_carlo(replications=10, ticks_per_day=600):
     print(f"Simulation Complete. Data exported to {filename}")
 
 if __name__ == "__main__":
-    run_monte_carlo(replications=10)
+    run_monte_carlo(replications=1000)
