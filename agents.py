@@ -58,3 +58,4 @@ class PatientAgent(mesa.Agent):
             
         elif self.current_location == "Consultation":
             self.current_location = "Discharged"
+            self.model.agents.remove(self)
