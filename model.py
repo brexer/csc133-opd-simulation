@@ -1,12 +1,17 @@
 import mesa
 import random
 from agents import PatientAgent
+from servers import ClinicNode
 
 class ClinicModel(mesa.Model):
     """The main digital environment for the OPD Simulation."""
     
     def __init__(self):
         super().__init__()
+
+        self.registration = ClinicNode("Registration", capacity=2) # 2 Clerks
+        self.triage = ClinicNode("Triage", capacity=1)             # 1 Triage Nurse
+        self.consultation = ClinicNode("Consultation", capacity=3) # 3 Doctors
                 
         self.datacollector = mesa.DataCollector(
             agent_reporters={
@@ -28,6 +33,11 @@ class ClinicModel(mesa.Model):
             self.spawn_patient()
             
         self.agents.shuffle_do("step")
+
+        self.registration.process_tick()
+        self.triage.process_tick()
+        self.consultation.process_tick()
+
         self.datacollector.collect(self)
 
     def spawn_patient(self):
@@ -41,4 +51,5 @@ class ClinicModel(mesa.Model):
         else:
             priority = "Regular"
             
-        PatientAgent(self, priority, self.steps)
+        new_agent = PatientAgent(self, priority, self.steps)
+        new_agent.advance_pipeline()

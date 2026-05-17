@@ -23,6 +23,8 @@ class PatientAgent(mesa.Agent):
         self.service_time_triage = 0
         self.service_time_consultation = 0
 
+        self.current_service_time_left = 0
+
     def step(self):
         """
         1 tick in the simulation = 1 minute in real life.
@@ -39,3 +41,20 @@ class PatientAgent(mesa.Agent):
     def get_total_wait_time(self):
         """Calculates the absolute total friction the patient experienced (throughput)."""
         return self.wait_time_registration + self.wait_time_triage + self.wait_time_consultation
+    
+    def advance_pipeline(self):
+        """Moves the patient to the next bottleneck after finishing a service."""
+        if self.current_location == "Entrance":
+            self.current_location = "Registration"
+            self.model.registration.receive_patient(self)
+            
+        elif self.current_location == "Registration":
+            self.current_location = "Triage"
+            self.model.triage.receive_patient(self)
+            
+        elif self.current_location == "Triage":
+            self.current_location = "Consultation"
+            self.model.consultation.receive_patient(self)
+            
+        elif self.current_location == "Consultation":
+            self.current_location = "Discharged"

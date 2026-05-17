@@ -1,3 +1,5 @@
+import random
+
 class ClinicNode:
     """
     Represents a specific station in the OPD (e.g., Registration, Triage, Consultation).
@@ -38,16 +40,33 @@ class ClinicNode:
         agent.is_waiting = True
 
     def start_service(self, agent):
-        """Moves the agent out of the queue and into the consultation room."""
+        """Moves the agent out of the queue and into the active room."""
         self.active_agents.append(agent)
         agent.is_waiting = False
+        
+        # Set service times for each station
+        if self.name == "Registration":
+            agent.current_service_time_left = random.randint(2, 5)   # Takes 2-5 minutes
+        elif self.name == "Triage":
+            agent.current_service_time_left = random.randint(3, 8)   # Takes 3-8 minutes
+        elif self.name == "Consultation":
+            agent.current_service_time_left = random.randint(10, 20) # Takes 10-20 minutes
 
     def process_tick(self):
-        """
-        Runs every minute to check if doctors are finished.
-        If a doctor is free, it strictly pulls from Index 0 of the queue.
-        """
-        
+        """Runs every minute to process active patients and pull from the queue."""
+        # Patients currently with a doctor or clerk
+        finished_agents = []
+        for agent in self.active_agents:
+            agent.current_service_time_left -= 1
+            if agent.current_service_time_left <= 0:
+                finished_agents.append(agent)
+                
+        # Move patients to the next station
+        for agent in finished_agents:
+            self.active_agents.remove(agent)
+            agent.advance_pipeline()
+
+        # Pull the next high-priority patients to move to the next stations
         while len(self.active_agents) < self.capacity and len(self.queue) > 0:
             next_patient = self.queue.pop(0)
             self.start_service(next_patient)
