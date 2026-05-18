@@ -47,17 +47,20 @@ class PatientAgent(mesa.Agent):
     
     def advance_pipeline(self):
         """Moves the patient to the next bottleneck after finishing a service."""
+
+        priority_mode = self.model.use_dynamic_priority
+
         if self.current_location == "Entrance":
             self.current_location = "Registration"
-            self.model.registration.receive_patient(self)
+            self.model.registration.receive_patient(self, priority_mode)
             
         elif self.current_location == "Registration":
             self.current_location = "Triage"
-            self.model.triage.receive_patient(self)
+            self.model.triage.receive_patient(self, priority_mode)
             
         elif self.current_location == "Triage":
             self.current_location = "Consultation"
-            self.model.consultation.receive_patient(self)
+            self.model.consultation.receive_patient(self, priority_mode)
             
         elif self.current_location == "Consultation":
             self.current_location = "Discharged"
