@@ -30,6 +30,11 @@ class ClinicModel(mesa.Model):
                 "Wait_Registration": "wait_time_registration",
                 "Wait_Triage": "wait_time_triage",
                 "Wait_Consultation": "wait_time_consultation"
+            },
+            model_reporters={
+                "Reg_Line": lambda m: len(m.registration.queue),
+                "Triage_Line": lambda m: len(m.triage.queue),
+                "Doctor_Line": lambda m: len(m.consultation.queue)
             }
         )
 

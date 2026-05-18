@@ -38,7 +38,7 @@ def run_monte_carlo(scenario_name, use_appts, use_priority, doctors, replication
     print(f"Simulation Complete. Data exported to {filename}")
 
 if __name__ == "__main__":
-    REPLICATIONS = 1000
+    REPLICATIONS = 100
 
     # Scenario 1: Baseline (FCFS Walk-ins)
     run_monte_carlo("Scenario 1 Baseline", use_appts=False, use_priority=False, doctors=3, replications=REPLICATIONS)
