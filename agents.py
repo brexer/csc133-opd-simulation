@@ -3,12 +3,13 @@ import mesa
 class PatientAgent(mesa.Agent):
     """An autonomous agent representing a patient in the OPD pipeline."""
     
-    def __init__(self, model, priority_level, spawn_time):
+    def __init__(self, model, priority_level, spawn_time, has_appointment=False):
         super().__init__(model)
         
         # evaluate agent: "Urgent", "Elderly/PWD/Pregnant (Vulnerable)", or "Regular"
         self.priority_level = priority_level
         self.spawn_time = spawn_time          # the exact minute they arrived
+        self.has_appointment = has_appointment
         
         # state machine (tracks location)
         self.current_location = "Entrance"
