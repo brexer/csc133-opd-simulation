@@ -8,7 +8,8 @@ def run_monte_carlo(scenario_name, use_appts, use_priority, doctors, replication
     """
     print(f"\n--- Starting {scenario_name} ---")
     print(f"Config: Appts={use_appts}, Priority={use_priority}, Doctors={doctors}")
-    all_results = []
+    all_agent_results = []
+    all_queue_results = []
 
     for i in range(replications):
         model = ClinicModel(use_appointments=use_appts, 
@@ -18,24 +19,31 @@ def run_monte_carlo(scenario_name, use_appts, use_priority, doctors, replication
         for _ in range(ticks_per_day):
             model.step()
 
-        # Extract the data logged by Mesa (in model.py) for this specific day
-        daily_data = model.datacollector.get_agent_vars_dataframe()
+        daily_agent_data = model.datacollector.get_agent_vars_dataframe()
+        daily_agent_data['Replication_ID'] = i 
+        all_agent_results.append(daily_agent_data)
+
+        daily_model_data = model.datacollector.get_model_vars_dataframe()
+        daily_model_data['Replication_ID'] = i
         
-        # Tag the data so we know which replication (day) it came from
-        daily_data['Replication_ID'] = i 
-        all_results.append(daily_data)
+        daily_model_data.reset_index(names=['Minute'], inplace=True)
+        all_queue_results.append(daily_model_data)
 
         if (i + 1) % 5 == 0:
             print(f"Completed {i + 1} / {replications} simulation days")
 
     # Aggregate all days into one Pandas DataFrame
     print(f"Aggregating data for {scenario_name}...")
-    final_df = pd.concat(all_results)
 
-    # Export to CSV
-    filename = f"{scenario_name.replace(' ', '_').lower()}_results.csv"
-    final_df.to_csv(filename)
-    print(f"Simulation Complete. Data exported to {filename}")
+    # Patient CSV
+    final_agent_df = pd.concat(all_agent_results)
+    agent_filename = f"{scenario_name.replace(' ', '_').lower()}_results.csv"
+    final_agent_df.to_csv(agent_filename)
+
+    # Queue CSV
+    final_queue_df = pd.concat(all_queue_results)
+    queue_filename = f"{scenario_name.replace(' ', '_').lower()}_queues.csv"
+    final_queue_df.to_csv(queue_filename, index=False)
 
 if __name__ == "__main__":
     REPLICATIONS = 100
