@@ -1,4 +1,14 @@
 import random
+import numpy as np
+
+def _sample_registration():
+    return max(1, int(round(random.gauss(5, 1.5))))
+ 
+def _sample_triage():
+    return max(1, int(round(np.random.gamma(shape=3, scale=1.5))))
+ 
+def _sample_consultation():
+    return max(1, int(round(np.random.lognormal(mean=2.8, sigma=0.55))))
 
 class ClinicNode:
     """
@@ -8,15 +18,16 @@ class ClinicNode:
     
     def __init__(self, name, capacity):
         self.name = name
-        self.capacity = capacity  # Number of available clerks/doctors
-        self.queue = []           # The dynamic waiting array
-        self.active_agents = []   # Agents currently receiving service
+        self.capacity = capacity      # parallel servers (clerks / nurses / doctors)
+        self.queue = []               # waiting agents, sorted by priority
+        self.active_agents = []       # agents currently being served
         
     def receive_patient(self, agent, use_dynamic_priority=True):
         """
         The Dynamic Priority Sorting Algorithm.
         This triggers the moment an agent arrives at this station.
         """
+        agent.is_waiting = True
         # If a doctor is free, the patient bypasses the queue entirely.
         if len(self.active_agents) < self.capacity:
             self.start_service(agent)
@@ -24,64 +35,64 @@ class ClinicNode:
         
         if not use_dynamic_priority:
             self.queue.append(agent)
-            agent.is_waiting = True
             return
-
-        # If the station is full, evaluate the agent's priority level and sort them.
-        if agent.priority_level == "Urgent":
-            # Finds the last Urgent patient and inserts right behind them (Index 0 tier)
-            insert_pos = sum(1 for p in self.queue if p.priority_level == "Urgent")
-            self.queue.insert(insert_pos, agent)
-            
-        elif agent.priority_level == "Vulnerable":
-            # Finds the end of the Urgent and Vulnerable blocks, inserts behind them (Index 1 tier)
-            if agent.has_appointment:
-                insert_pos = sum(1 for p in self.queue if p.priority_level == "Urgent" or 
-                                (p.priority_level == "Vulnerable" and p.has_appointment))   # Vulnerable patients with appointment bypasses Vulnerable walk-ins
+        
+        weight = agent.get_priority_weight()
+        insert_pos = 0
+        for i, queued in enumerate(self.queue):
+            if queued.get_priority_weight() <= weight:
+                insert_pos = i + 1
             else:
-                insert_pos = sum(1 for p in self.queue if p.priority_level in ["Urgent", "Vulnerable"])
-            self.queue.insert(insert_pos, agent)
-            
-        else:
-            # Regular walk-in: Standard First-In-First-Out (FIFO) at the back of the line
-            # Regular patients with appointment bypasses Regular walk-ins
-            if agent.has_appointment:
-                insert_pos = sum(1 for p in self.queue if p.priority_level in ["Urgent", "Vulnerable"] or 
-                                (p.priority_level == "Regular" and p.has_appointment))
-                self.queue.insert(insert_pos, agent)
-            else:
-                self.queue.append(agent)
-            
-        agent.is_waiting = True
+                break
+        self.queue.insert(insert_pos, agent)
 
     def start_service(self, agent):
-        """Moves the agent out of the queue and into the active room."""
+        """
+        Pulls the agent out of the waiting state and into active service.
+        Sets service duration based on literature-grounded distributions.
+        """
         self.active_agents.append(agent)
         agent.is_waiting = False
-        
-        # Set service times for each station
+ 
         if self.name == "Registration":
-            agent.current_service_time_left = random.randint(2, 5)   # Takes 2-5 minutes
+            duration = _sample_registration()
+            agent.service_time_registration = duration
+            agent.current_location = "In_Registration"
+ 
         elif self.name == "Triage":
-            agent.current_service_time_left = random.randint(3, 8)   # Takes 3-8 minutes
+            duration = _sample_triage()
+            agent.service_time_triage = duration
+            agent.current_location = "In_Triage"
+ 
         elif self.name == "Consultation":
-            agent.current_service_time_left = random.randint(10, 20) # Takes 10-20 minutes
+            duration = _sample_consultation()
+            agent.service_time_consultation = duration
+            agent.current_location = "In_Consultation"
+ 
+        agent.current_service_time_left = duration
 
     def process_tick(self):
-        """Runs every minute to process active patients and pull from the queue."""
-        # Patients currently with a doctor or clerk
-        finished_agents = []
+        """
+        Decrements service timers; discharges finished patients;
+        pulls next patient from the queue if a server opens up.
+        """
+        finished = []
         for agent in self.active_agents:
             agent.current_service_time_left -= 1
             if agent.current_service_time_left <= 0:
-                finished_agents.append(agent)
-                
-        # Move patients to the next station
-        for agent in finished_agents:
+                finished.append(agent)
+ 
+        for agent in finished:
             self.active_agents.remove(agent)
-            agent.advance_pipeline()
-
-        # Pull the next high-priority patients to move to the next stations
-        while len(self.active_agents) < self.capacity and len(self.queue) > 0:
+            agent.advance_pipeline()   # moves to next node or Discharged
+ 
+        # Fill any newly freed servers from the queue
+        while self.queue and len(self.active_agents) < self.capacity:
             next_patient = self.queue.pop(0)
             self.start_service(next_patient)
+
+    def queue_length(self):
+        return len(self.queue)
+ 
+    def active_count(self):
+        return len(self.active_agents)
