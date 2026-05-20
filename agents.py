@@ -13,7 +13,7 @@ class PatientAgent(mesa.Agent):
         
         # state machine (tracks location)
         self.current_location = "Entrance"
-        self.is_waiting = True
+        self.is_waiting = False
         
         # metrics
         self.wait_time_registration = 0
@@ -31,19 +31,23 @@ class PatientAgent(mesa.Agent):
         1 tick in the simulation = 1 minute in real life.
         If agent is stuck waiting, their wait timer is incremented.
         """
-        if self.is_waiting:
-            if self.current_location == "Registration":
-                self.wait_time_registration += 1
-                
-            elif self.current_location == "Triage":
-                self.wait_time_triage += 1
-                
-            elif self.current_location == "Consultation":
-                self.wait_time_consultation += 1
+        if not self.is_waiting:
+            return
+ 
+        if self.current_location == "Waiting_Registration":
+            self.wait_time_registration += 1
+        elif self.current_location == "Waiting_Triage":
+            self.wait_time_triage += 1
+        elif self.current_location == "Waiting_Consultation":
+            self.wait_time_consultation += 1
                 
     def get_total_wait_time(self):
-        """Calculates the absolute total friction the patient experienced (throughput)."""
-        return self.wait_time_registration + self.wait_time_triage + self.wait_time_consultation
+        """Total queue time across all nodes."""
+        return (
+            self.wait_time_registration
+            + self.wait_time_triage
+            + self.wait_time_consultation
+        )
     
     def advance_pipeline(self):
         """Moves the patient to the next bottleneck after finishing a service."""
@@ -51,17 +55,44 @@ class PatientAgent(mesa.Agent):
         priority_mode = self.model.use_dynamic_priority
 
         if self.current_location == "Entrance":
-            self.current_location = "Registration"
+            self.current_location = "Waiting_Registration"
             self.model.registration.receive_patient(self, priority_mode)
-            
-        elif self.current_location == "Registration":
-            self.current_location = "Triage"
+ 
+        elif self.current_location == "In_Registration":
+            self.current_location = "Waiting_Triage"
             self.model.triage.receive_patient(self, priority_mode)
-            
-        elif self.current_location == "Triage":
-            self.current_location = "Consultation"
+ 
+        elif self.current_location == "In_Triage":
+            self.current_location = "Waiting_Consultation"
             self.model.consultation.receive_patient(self, priority_mode)
-            
-        elif self.current_location == "Consultation":
+ 
+        elif self.current_location == "In_Consultation":
             self.current_location = "Discharged"
             self.model.agents.remove(self)
+
+    def get_total_service_time(self):
+        """Total time actively being served across all nodes."""
+        return (
+            self.service_time_registration
+            + self.service_time_triage
+            + self.service_time_consultation
+        )
+ 
+    def get_total_time_in_system(self):
+        """
+        Sojourn time = wait + service across all nodes.
+        Valid only after discharge; returns None otherwise.
+        """
+        if self.current_location != "Discharged":
+            return None
+        return self.get_total_wait_time() + self.get_total_service_time()
+ 
+    def get_priority_weight(self):
+        """
+        Numeric sort key for the Dynamic Priority Routing algorithm.
+        Lower = higher priority (consistent with ESI and RA 9994 / RA 10754).
+        Returns a tuple (tier, appointment_bonus) for stable sub-sorting.
+        """
+        base = {"Urgent": 0, "Vulnerable": 1, "Regular": 2}.get(self.priority_level, 2)
+        appt_bonus = 0 if self.has_appointment else 1
+        return (base, appt_bonus)
