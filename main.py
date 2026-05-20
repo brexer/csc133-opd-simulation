@@ -1,66 +1,119 @@
+"""
+Monte Carlo replication engine for the OPD ABM Simulation.
+Runs N replications of each of the 5 experimental scenarios and writes
+two CSV files per scenario:
+  - <scenario>_results.csv  : per-agent wait/service metrics
+  - <scenario>_queues.csv   : per-minute queue length snapshots
+"""
+
 import pandas as pd
 from model import ClinicModel
 
-def run_monte_carlo(scenario_name, use_appts, use_priority, doctors, replications=1000, ticks_per_day=600):
+SCENARIOS = [
+    {
+        "name":        "Scenario 1 Baseline",
+        "slug":        "scenario_1_baseline",
+        "use_appts":   False,
+        "use_priority": False,
+        "doctors":     3,
+    },
+    {
+        "name":        "Scenario 2 Appointments",
+        "slug":        "scenario_2_appointments",
+        "use_appts":   True,
+        "use_priority": False,
+        "doctors":     3,
+    },
+    {
+        "name":        "Scenario 3 Dynamic Priority",
+        "slug":        "scenario_3_dynamic_priority",
+        "use_appts":   False,
+        "use_priority": True,
+        "doctors":     3,
+    },
+    {
+        "name":        "Scenario 4 Resource Scaling",
+        "slug":        "scenario_4_resource_scaling",
+        "use_appts":   False,
+        "use_priority": False,
+        "doctors":     4,
+    },
+    {
+        "name":        "Scenario 5 Combined",
+        "slug":        "scenario_5_combined",
+        "use_appts":   True,
+        "use_priority": True,
+        "doctors":     4,
+    },
+]
+ 
+TICKS_PER_DAY = 600
+
+def run_monte_carlo(scenario: dict, replications: int = 1000):
     """
-    The main Monte Carlo execution loop.
-    ticks_per_day = 600 represents a 10-hour clinic shift (60 minutes * 10 hours).
+    Runs `replications` independent days of the given scenario.
+    Writes two CSV files and returns (agent_df, queue_df) for optional
+    in-memory use.
     """
-    print(f"\n--- Starting {scenario_name} ---")
-    print(f"Config: Appts={use_appts}, Priority={use_priority}, Doctors={doctors}")
+    name = scenario["name"]
+    slug = scenario["slug"]
+ 
+    print(f"\n{'='*60}")
+    print(f"  {name}")
+    print(f"  Appts={scenario['use_appts']} | Priority={scenario['use_priority']} "
+          f"| Doctors={scenario['doctors']}")
+    print(f"{'='*60}")
+ 
     all_agent_results = []
     all_queue_results = []
-
+ 
     for i in range(replications):
-        model = ClinicModel(use_appointments=use_appts, 
-                            use_dynamic_priority=use_priority, 
-                            num_doctors=doctors)
-
-        for _ in range(ticks_per_day):
+        model = ClinicModel(
+            use_appointments=scenario["use_appts"],
+            use_dynamic_priority=scenario["use_priority"],
+            num_doctors=scenario["doctors"],
+            seed=i,          # deterministic per replication, comparable across scenarios
+        )
+ 
+        for _ in range(TICKS_PER_DAY):
             model.step()
-
-        daily_agent_data = model.datacollector.get_agent_vars_dataframe()
-        daily_agent_data['Replication_ID'] = i 
-        all_agent_results.append(daily_agent_data)
-
-        daily_model_data = model.datacollector.get_model_vars_dataframe()
-        daily_model_data['Replication_ID'] = i
-        
-        daily_model_data.reset_index(names=['Minute'], inplace=True)
-        all_queue_results.append(daily_model_data)
-
-        if (i + 1) % 5 == 0:
-            print(f"Completed {i + 1} / {replications} simulation days")
-
-    # Aggregate all days into one Pandas DataFrame
-    print(f"Aggregating data for {scenario_name}...")
-
-    # Patient CSV
-    final_agent_df = pd.concat(all_agent_results)
-    agent_filename = f"{scenario_name.replace(' ', '_').lower()}_results.csv"
-    final_agent_df.to_csv(agent_filename)
-
-    # Queue CSV
-    final_queue_df = pd.concat(all_queue_results)
-    queue_filename = f"{scenario_name.replace(' ', '_').lower()}_queues.csv"
+ 
+        # agent-level data
+        agent_df = model.datacollector.get_agent_vars_dataframe()
+        agent_df = agent_df.groupby(level="AgentID").last().reset_index()
+        agent_df["Replication_ID"] = i
+        all_agent_results.append(agent_df)
+ 
+        # model-level data
+        queue_df = model.datacollector.get_model_vars_dataframe()
+        queue_df.reset_index(names=["Minute"], inplace=True)
+        queue_df["Replication_ID"] = i
+        all_queue_results.append(queue_df)
+ 
+        if (i + 1) % 100 == 0:
+            print(f"  Completed {i + 1} / {replications} replications")
+ 
+    print(f"  Aggregating and saving {name}...")
+ 
+    final_agent_df = pd.concat(all_agent_results, ignore_index=True)
+    agent_filename = f"{slug}_results.csv"
+    final_agent_df.to_csv(agent_filename, index=False)
+    print(f"  Saved → {agent_filename}")
+ 
+    final_queue_df = pd.concat(all_queue_results, ignore_index=True)
+    queue_filename = f"{slug}_queues.csv"
     final_queue_df.to_csv(queue_filename, index=False)
-
+    print(f"  Saved → {queue_filename}")
+ 
+    return final_agent_df, final_queue_df
+ 
 if __name__ == "__main__":
-    REPLICATIONS = 100
-
-    # Scenario 1: Baseline (FCFS Walk-ins)
-    run_monte_carlo("Scenario 1 Baseline", use_appts=False, use_priority=False, doctors=3, replications=REPLICATIONS)
-
-    # Scenario 2: Appointments Only (No Priority Sorting)
-    run_monte_carlo("Scenario 2 Appointments", use_appts=True, use_priority=False, doctors=3, replications=REPLICATIONS)
-
-    # Scenario 3: Dynamic Priority Routing Only
-    run_monte_carlo("Scenario 3 Dynamic Priority", use_appts=False, use_priority=True, doctors=3, replications=REPLICATIONS)
-
-    # Scenario 4: Resource Scaling (+1 Doctor)
-    run_monte_carlo("Scenario 4 Resource Scaling", use_appts=False, use_priority=False, doctors=4, replications=REPLICATIONS)
-
-    # Scenario 5: The Combined Strategy
-    run_monte_carlo("Scenario 5 Combined", use_appts=True, use_priority=True, doctors=4, replications=REPLICATIONS)
-
-    print("\nAll Scenarios Completed Successfully!")
+    REPLICATIONS = 1000
+ 
+    for scenario in SCENARIOS:
+        run_monte_carlo(scenario, replications=REPLICATIONS)
+ 
+    print("\n" + "=" * 60)
+    print("  All 5 Scenarios Completed Successfully!")
+    print("=" * 60)
+ 
