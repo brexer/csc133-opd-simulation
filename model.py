@@ -81,8 +81,12 @@ class ClinicModel(mesa.Model):
           6. Collect data.
         """
         self.current_tick += 1
+
+        # 0.167 ensures ~100 walk-ins + 20 appointments = ~120 total daily patients,
+        # keeping volume constant across all scenarios for a valid scientific comparison.
+        arrival_prob = 0.167 if self.use_appointments else ARRIVAL_PROB
  
-        if random.random() < ARRIVAL_PROB:
+        if random.random() < arrival_prob:
             self.spawn_patient(has_appointment=False)
  
         if self.use_appointments and self.current_tick in self.appointment_schedule:
