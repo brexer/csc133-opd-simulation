@@ -24,7 +24,7 @@ class ClinicModel(mesa.Model):
     """
     
     def __init__(self, use_appointments=False, use_dynamic_priority=False, num_doctors=3, seed=None):
-        super().__init__(seed=seed)
+        super().__init__(rng=seed)
  
         self.use_appointments = use_appointments
         self.use_dynamic_priority = use_dynamic_priority
@@ -55,7 +55,7 @@ class ClinicModel(mesa.Model):
                 "Service_Registration":  "service_time_registration",
                 "Service_Triage":        "service_time_triage",
                 "Service_Consultation":  "service_time_consultation",
-                "Total_Wait":            lambda a: a.get_total_wait_time(),
+                "Total_Wait":            "total_wait",
                 "Location":              "current_location",
             },
             model_reporters={
