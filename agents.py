@@ -70,6 +70,11 @@ class PatientAgent(mesa.Agent):
             self.current_location = "Discharged"
             self.model.agents.remove(self)
 
+    @property
+    def total_wait(self):
+        """Plain attribute alias for get_total_wait_time() — used by DataCollector."""
+        return self.get_total_wait_time()
+
     def get_total_service_time(self):
         """Total time actively being served across all nodes."""
         return (
